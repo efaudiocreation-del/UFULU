@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+
+# Distribución / Build de PyInstaller
+build/
+dist/
+*.spec
+
+# Base de datos UFULU (datos personales del DJ)
+ufulu_collection.db
+backups/
+*.db-journal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
