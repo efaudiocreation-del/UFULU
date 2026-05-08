@@ -18,7 +18,7 @@ import tag_manager
 import curaduria_engine
 import widgets_ufulu
 import playlist_exporters
-from widgets_rodec import RodecKnob, RodecKnobSelector
+from widgets_rodec import RodecKnob, RodecKnobSelector, RodecLCD
 from audio_engine import EngineUfulu, detectar_segmentos_estructurales
 
 # --- MODELO DE EXPLORACIÓN CON MEMORIA VISUAL ---
@@ -488,19 +488,24 @@ class MainApp(QMainWindow):
         
         # --- PANEL DE CONTROL NARRATIVO ---
         grp = QGroupBox("DISEÑO DE SESIÓN ANALÓGICA")
-        grp.setFixedHeight(250)
+        grp.setFixedHeight(290)
         ly_g = QGridLayout(grp)
         
-        # Selectores de Ingeniería Musical
-        self.cb_luz = QComboBox(); self.cb_luz.addItems(["DÍA", "NOCHE"])
-        self.cb_mom = QComboBox(); self.cb_mom.addItems(["WARM-UP (APERTURA)", "PEAK (CÉNIT)", "CLOSING (CIERRE)"])
-        self.cb_den = QComboBox(); self.cb_den.addItems(["NORMAL", "RÁPIDA", "LARGA"])
-        self.cb_estilo_cur = QComboBox(); self.cb_estilo_cur.addItems(["TODOS", "AMAPIANO", "ORGANIC", "HOUSE", "MINIMAL", "TECHNO", "PSY"])
+        # Selectores de Ingeniería Musical (knobs Rodec en lugar de combos)
+        self.cb_luz = RodecKnobSelector(["DÍA", "NOCHE"], style="amber", size=58)
+        self.cb_mom = RodecKnobSelector(
+            ["WARM-UP (APERTURA)", "PEAK (CÉNIT)", "CLOSING (CIERRE)"],
+            style="red", size=58)
+        self.cb_den = RodecKnobSelector(
+            ["NORMAL", "RÁPIDA", "LARGA"], style="green", size=58)
+        self.cb_estilo_cur = RodecKnobSelector(
+            ["TODOS", "AMAPIANO", "ORGANIC", "HOUSE", "MINIMAL", "TECHNO", "PSY"],
+            style="cyan", size=58)
         
         # Parámetros de Duración y Semilla
         self.in_dur = QLineEdit("90")
         self.in_dur.setFixedWidth(60)
-        self.in_dur.setStyleSheet("background:black; border:1px solid #555; color:white;")
+        self.in_dur.setObjectName("lcdSmall")
         
         self.chk_semilla = QCheckBox("USAR TEMA ACTUAL COMO SEMILLA")
         

@@ -1,26 +1,44 @@
 # widgets_rodec.py
 # UFULU RODEC EDITION - WIDGETS HARDWARE-LIKE v33.7
 # =====================================================
-# Knobs, faders y selectores rotatorios estética Rodec BX-9.
-# Pintado custom para parecer potenciómetros físicos.
+# RodecKnob          - potenciómetro analógico BX-9
+# RodecKnobSelector  - selector rotatorio (drop-in QComboBox)
+# RodecLCD           - display LCD verde fósforo
+# RodecVUMeter       - barra LED vertical green/amber/red
 # =====================================================
 
-from PyQt6.QtWidgets import QDial
-from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QRadialGradient, QFont
-from PyQt6.QtCore import Qt, QRectF, QPointF, pyqtSignal
+from PyQt6.QtWidgets import QDial, QWidget, QLabel, QVBoxLayout, QSizePolicy
+from PyQt6.QtGui import (
+    QPainter, QColor, QPen, QBrush, QRadialGradient, QLinearGradient,
+    QFont, QPainterPath
+)
+from PyQt6.QtCore import Qt, QRectF, QPointF, pyqtSignal, QSize
 import math
 
 
+# === Paleta hardware Rodec ===
+PANEL_DARK   = QColor("#384048")
+PANEL        = QColor("#485059")
+PANEL_LIGHT  = QColor("#5a626b")
+RING_SILVER  = QColor("#a8aeb5")
+RING_DARK    = QColor("#1a1d20")
+KNOB_BLACK   = QColor("#181a1c")
+TEXT_WHITE   = QColor("#ecedee")
+LCD_BG       = QColor("#0a1410")
+LCD_FG       = QColor("#3dff7a")
+
+
 # -------------------------------------------------------
-# RodecKnob: Potenciómetro analógico tipo BX-9
+# RodecKnob: potenciómetro hardware
 # -------------------------------------------------------
 class RodecKnob(QDial):
     """
-    Knob personalizado con cuerpo metalizado, ribete y testigo
-    luminoso indicando la posición. Soporta estilos de color:
-        - "red"   : LED rojo (sondas / inyección)
-        - "cyan"  : LED turquesa (sealed / curaduría)
-        - "amber" : LED ámbar (filtros)
+    Knob estética Rodec BX-9:
+      - Anillo plateado cepillado exterior
+      - Cuerpo negro mate con sutil reflejo cenital
+      - Aguja indicadora blanca / roja según estilo
+      - Tics de referencia en serigrafía clara
+      - Halo LED en la posición seleccionada
     """
 
     def __init__(self, style: str = "red", parent=None):
@@ -28,120 +46,247 @@ class RodecKnob(QDial):
         self.setNotchesVisible(False)
         self.setWrapping(False)
         self._style = style
-        self._color_led = self._led_for_style(style)
+        self._needle_color, self._led_color = self._palette_for(style)
 
-    def _led_for_style(self, name: str) -> QColor:
+    def _palette_for(self, name: str):
+        # Devuelve (color de aguja, color del LED de halo)
         return {
-            "red":   QColor("#ff3333"),
-            "cyan":  QColor("#00ffcc"),
-            "amber": QColor("#ffaa00"),
-            "white": QColor("#f0f0f0"),
-        }.get(name, QColor("#ff3333"))
+            "red":    (QColor("#ff3333"), QColor("#ff3333")),
+            "yellow": (QColor("#ffd100"), QColor("#ffd100")),
+            "amber":  (QColor("#ffc000"), QColor("#ffc000")),
+            "cyan":   (QColor("#00ffcc"), QColor("#00ffcc")),
+            "green":  (QColor("#00ff66"), QColor("#00ff66")),
+            "white":  (QColor("#f0f0f0"), QColor("#a0a8b0")),
+        }.get(name, (QColor("#ff3333"), QColor("#ff3333")))
 
     def paintEvent(self, _):
         side = min(self.width(), self.height())
         cx, cy = self.width() / 2.0, self.height() / 2.0
-        r = side / 2.0 - 4
+        r = side / 2.0 - 3
 
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # 1) Anillo exterior anodizado oscuro
-        grad_ring = QRadialGradient(cx, cy, r)
-        grad_ring.setColorAt(0.0, QColor("#3b3b3b"))
-        grad_ring.setColorAt(0.85, QColor("#1a1a1a"))
-        grad_ring.setColorAt(1.0, QColor("#0a0a0a"))
-        p.setPen(QPen(QColor("#000"), 1))
-        p.setBrush(QBrush(grad_ring))
+        # 1) Zócalo profundo (sombra)
+        p.setBrush(QBrush(RING_DARK))
+        p.setPen(Qt.PenStyle.NoPen)
         p.drawEllipse(QPointF(cx, cy), r, r)
 
-        # 2) Cuerpo metalizado interior
-        rb = r * 0.78
-        grad_body = QRadialGradient(cx - rb * 0.3, cy - rb * 0.3, rb * 1.4)
-        grad_body.setColorAt(0.0, QColor("#5a5a5a"))
-        grad_body.setColorAt(0.55, QColor("#2c2c2c"))
-        grad_body.setColorAt(1.0, QColor("#101010"))
-        p.setBrush(QBrush(grad_body))
+        # 2) Anillo plateado cepillado
+        ring = QRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 1.6)
+        ring.setColorAt(0.0, QColor("#cdd2d8"))
+        ring.setColorAt(0.5, RING_SILVER)
+        ring.setColorAt(1.0, QColor("#5a5e63"))
+        p.setBrush(QBrush(ring))
+        p.setPen(QPen(RING_DARK, 1))
+        p.drawEllipse(QPointF(cx, cy), r * 0.95, r * 0.95)
+
+        # 3) Cuerpo negro mate del knob
+        rb = r * 0.74
+        body = QRadialGradient(cx - rb * 0.35, cy - rb * 0.45, rb * 1.6)
+        body.setColorAt(0.0, QColor("#3a3d40"))
+        body.setColorAt(0.55, KNOB_BLACK)
+        body.setColorAt(1.0, QColor("#0a0c0e"))
+        p.setBrush(QBrush(body))
         p.setPen(QPen(QColor("#000"), 1))
         p.drawEllipse(QPointF(cx, cy), rb, rb)
 
-        # 3) Ticks circulares (referencia visual)
-        p.setPen(QPen(QColor("#888"), 1))
+        # 4) Tics serigrafiados (11 marcas, arco -225º .. +45º)
+        p.setPen(QPen(QColor("#cfd2d4"), 1))
         for i in range(11):
-            ang = math.radians(-225 + i * 27)  # -225..+45
+            ang = math.radians(-225 + i * 27)
             x1 = cx + math.cos(ang) * (r * 0.92)
             y1 = cy + math.sin(ang) * (r * 0.92)
             x2 = cx + math.cos(ang) * (r * 0.99)
             y2 = cy + math.sin(ang) * (r * 0.99)
             p.drawLine(QPointF(x1, y1), QPointF(x2, y2))
 
-        # 4) Testigo LED en posición
+        # 5) Posición actual
         v_min, v_max = self.minimum(), self.maximum()
         rng = max(1, v_max - v_min)
         frac = (self.value() - v_min) / rng
-        ang = math.radians(-225 + frac * 270)  # arco 270º
+        ang = math.radians(-225 + frac * 270)
 
-        led_r = rb * 0.18
-        led_dist = rb * 0.65
+        # 6) LED de halo en la posición
+        led_r = rb * 0.16
+        led_dist = rb * 0.62
         lx = cx + math.cos(ang) * led_dist
         ly = cy + math.sin(ang) * led_dist
 
-        # halo
-        halo = QRadialGradient(lx, ly, led_r * 2.5)
-        halo.setColorAt(0.0, QColor(self._color_led.red(),
-                                    self._color_led.green(),
-                                    self._color_led.blue(), 180))
+        halo = QRadialGradient(lx, ly, led_r * 3)
+        halo.setColorAt(0.0, QColor(self._led_color.red(),
+                                    self._led_color.green(),
+                                    self._led_color.blue(), 200))
         halo.setColorAt(1.0, QColor(0, 0, 0, 0))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(halo))
-        p.drawEllipse(QPointF(lx, ly), led_r * 2.5, led_r * 2.5)
+        p.drawEllipse(QPointF(lx, ly), led_r * 3, led_r * 3)
 
-        # núcleo LED
-        p.setBrush(QBrush(self._color_led))
+        p.setBrush(QBrush(self._led_color))
         p.drawEllipse(QPointF(lx, ly), led_r, led_r)
 
-        # 5) Línea indicadora desde centro al LED
-        p.setPen(QPen(QColor("#cfd2d4"), 2))
-        p.drawLine(QPointF(cx, cy),
-                   QPointF(cx + math.cos(ang) * (rb * 0.55),
-                           cy + math.sin(ang) * (rb * 0.55)))
+        # 7) Aguja indicadora flecha (centro -> borde) tipo Rodec
+        path = QPainterPath()
+        ang_perp = ang + math.pi / 2
+        base_w = max(2.0, rb * 0.10)
+        # Punta
+        x_tip = cx + math.cos(ang) * (rb * 0.85)
+        y_tip = cy + math.sin(ang) * (rb * 0.85)
+        # Base izquierda
+        x_bl = cx + math.cos(ang) * (rb * 0.20) + math.cos(ang_perp) * base_w
+        y_bl = cy + math.sin(ang) * (rb * 0.20) + math.sin(ang_perp) * base_w
+        # Base derecha
+        x_br = cx + math.cos(ang) * (rb * 0.20) - math.cos(ang_perp) * base_w
+        y_br = cy + math.sin(ang) * (rb * 0.20) - math.sin(ang_perp) * base_w
+        path.moveTo(x_tip, y_tip)
+        path.lineTo(x_bl, y_bl)
+        path.lineTo(x_br, y_br)
+        path.closeSubpath()
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(self._needle_color))
+        p.drawPath(path)
+
+        # 8) Reflejo cenital sutil sobre el cuerpo
+        gloss = QRadialGradient(cx, cy - rb * 0.7, rb * 1.2)
+        gloss.setColorAt(0.0, QColor(255, 255, 255, 35))
+        gloss.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.setBrush(QBrush(gloss))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(QPointF(cx, cy), rb, rb)
 
         p.end()
 
 
 # -------------------------------------------------------
-# RodecKnobSelector: selector rotatorio de N posiciones
+# RodecKnobSelector — drop-in replacement de QComboBox
 # -------------------------------------------------------
-class RodecKnobSelector(RodecKnob):
+class RodecKnobSelector(QWidget):
     """
-    Selector de N posiciones discretas (e.g. selector de canal,
-    selector de modo). Salta entre etiquetas con clic / rueda.
+    Selector rotatorio de N posiciones discretas.
+    Compatible con la API de QComboBox usada en main.py:
+        - addItems(lista)
+        - currentText() / currentIndex()
+        - setCurrentText(txt) / setCurrentIndex(i)
+        - currentTextChanged (señal)
+    Visualmente: knob hardware + LCD verde fósforo con la etiqueta.
     """
-    selected = pyqtSignal(int, str)
+    currentTextChanged = pyqtSignal(str)
+    currentIndexChanged = pyqtSignal(int)
 
-    def __init__(self, etiquetas, style: str = "amber", parent=None):
-        super().__init__(style=style, parent=parent)
-        self._etiquetas = list(etiquetas) if etiquetas else ["A"]
-        self.setRange(0, max(0, len(self._etiquetas) - 1))
-        self.setSingleStep(1)
-        self.valueChanged.connect(self._emitir)
+    def __init__(self, items=None, style: str = "amber", parent=None,
+                 size: int = 64):
+        super().__init__(parent)
+        self._items = list(items) if items else []
+        self._knob_size = size
 
-    def _emitir(self, v: int):
-        v = max(0, min(len(self._etiquetas) - 1, int(v)))
-        self.selected.emit(v, self._etiquetas[v])
+        ly = QVBoxLayout(self)
+        ly.setContentsMargins(0, 0, 0, 0)
+        ly.setSpacing(3)
 
-    def etiqueta_actual(self) -> str:
-        v = max(0, min(len(self._etiquetas) - 1, int(self.value())))
-        return self._etiquetas[v]
+        self._knob = RodecKnob(style=style)
+        self._knob.setFixedSize(size, size)
+        self._knob.setRange(0, max(0, len(self._items) - 1))
+        self._knob.setSingleStep(1)
+        self._knob.setPageStep(1)
+        self._knob.valueChanged.connect(self._on_changed)
 
-    def paintEvent(self, ev):
-        super().paintEvent(ev)
-        # Dibujamos la etiqueta debajo del knob
+        self._lcd = QLabel(self._items[0] if self._items else "—")
+        self._lcd.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._lcd.setObjectName("lcdSmall")
+        self._lcd.setStyleSheet(
+            "background:#0a1410; color:#3dff7a; "
+            "border:1px solid #1a1d20; border-radius:2px; "
+            "padding:3px 6px; font-family:Consolas; "
+            "font-size:9px; font-weight:bold; letter-spacing:1px;"
+        )
+        self._lcd.setMinimumWidth(size + 20)
+
+        ly.addWidget(self._knob, 0, Qt.AlignmentFlag.AlignHCenter)
+        ly.addWidget(self._lcd)
+
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
+    # ---- API drop-in QComboBox ----
+    def addItems(self, items):
+        self._items = list(items) if items else []
+        self._knob.setRange(0, max(0, len(self._items) - 1))
+        if self._items:
+            self._lcd.setText(self._items[0])
+
+    def currentText(self) -> str:
+        if not self._items: return ""
+        i = max(0, min(len(self._items) - 1, int(self._knob.value())))
+        return self._items[i]
+
+    def currentIndex(self) -> int:
+        return int(self._knob.value())
+
+    def setCurrentText(self, text: str):
+        if text in self._items:
+            self.setCurrentIndex(self._items.index(text))
+
+    def setCurrentIndex(self, idx: int):
+        idx = max(0, min(len(self._items) - 1, int(idx)))
+        self._knob.setValue(idx)
+
+    # ---- internos ----
+    def _on_changed(self, v: int):
+        if not self._items: return
+        v = max(0, min(len(self._items) - 1, int(v)))
+        txt = self._items[v]
+        self._lcd.setText(txt)
+        self.currentIndexChanged.emit(v)
+        self.currentTextChanged.emit(txt)
+
+
+# -------------------------------------------------------
+# RodecLCD — display informativo verde fósforo
+# -------------------------------------------------------
+class RodecLCD(QLabel):
+    """Pantalla LCD verde tipo display Rodec (lecturas: BPM, KEY, etc)."""
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(text, parent)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setStyleSheet(
+            "background:#0a1410; color:#3dff7a; "
+            "border:1px solid #1a1d20; border-radius:2px; "
+            "padding:4px 10px; font-family:Consolas; "
+            "font-size:11px; font-weight:bold; letter-spacing:2px;"
+        )
+
+
+# -------------------------------------------------------
+# RodecVUMeter — barra LED vertical green/amber/red
+# -------------------------------------------------------
+class RodecVUMeter(QWidget):
+    """VU vertical 12 segmentos con tres zonas (verde/ámbar/rojo)."""
+    def __init__(self, segments: int = 12, parent=None):
+        super().__init__(parent)
+        self._n = max(6, segments)
+        self._level = 0.0  # 0..1
+        self.setFixedWidth(14)
+        self.setMinimumHeight(120)
+
+    def setLevel(self, v: float):
+        self._level = max(0.0, min(1.0, float(v)))
+        self.update()
+
+    def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(QPen(QColor("#00ffcc"), 1))
-        f = QFont("Consolas", 8, QFont.Weight.Bold)
-        p.setFont(f)
-        rect = QRectF(0, self.height() - 16, self.width(), 14)
-        p.drawText(rect, Qt.AlignmentFlag.AlignCenter, self.etiqueta_actual())
+        h = self.height(); w = self.width()
+        p.fillRect(0, 0, w, h, RING_DARK)
+        seg_h = (h - 4) / self._n
+        encendidos = int(round(self._level * self._n))
+        for i in range(self._n):
+            y = h - 2 - (i + 1) * seg_h
+            # Zonas
+            if i < self._n * 0.6:
+                col_on, col_off = QColor("#00ff66"), QColor("#0a2a14")
+            elif i < self._n * 0.85:
+                col_on, col_off = QColor("#ffc000"), QColor("#2a1f00")
+            else:
+                col_on, col_off = QColor("#ff3030"), QColor("#2a0808")
+            p.fillRect(QRectF(2, y, w - 4, seg_h - 2),
+                       col_on if i < encendidos else col_off)
         p.end()

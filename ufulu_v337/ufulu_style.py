@@ -1,17 +1,38 @@
 # ufulu_style.py
 # UFULU RODEC EDITION - PIEL ANALÓGICA BX-9 v33.7
 # =====================================================
-# Paleta inspirada en la mesa Rodec BX-9: panel grafito,
-# anodizados oscuros, etiquetas serigrafiadas plateadas,
-# acentos turquesa para 'sealed' y rojo para 'inject'.
+# Paleta extraída de la mesa Rodec BX-9 real:
+#   - Panel:        azul antracita mate
+#   - Anillos:      plata cepillada
+#   - Cuerpo knob:  negro mate
+#   - Texto:        blanco serigrafiado
+#   - LCD:          verde fósforo sobre negro
+#   - LEDs:         verde / ámbar / rojo
 # =====================================================
 
-# Marcadores de cabina (HotCues 1..8) - colores hardware
+# === PALETA RODEC BX-9 ===
+ROD_PANEL_DARK   = "#384048"   # antracita más profundo (sombras)
+ROD_PANEL        = "#485059"   # antracita base (casquillo BX-9)
+ROD_PANEL_LIGHT  = "#5a626b"   # antracita iluminado (highlights)
+ROD_RING_SILVER  = "#9ea4ab"   # plata cepillada (anillos knobs)
+ROD_RING_DARK    = "#1a1d20"   # zócalo profundo
+
+ROD_TEXT         = "#ecedee"   # serigrafía blanca
+ROD_TEXT_DIM     = "#9aa3ad"   # texto secundario
+ROD_LCD_BG       = "#0a1410"   # fondo LCD verde fósforo
+ROD_LCD_FG       = "#3dff7a"   # texto LCD verde
+ROD_LCD_GLOW     = "#00cc55"   # halo del LCD
+
+ROD_LED_GREEN    = "#00ff66"
+ROD_LED_AMBER    = "#ffc000"
+ROD_LED_RED      = "#ff3030"
+
+# Marcadores de cabina (HotCues 1..8) - colores LED hardware
 CUE_COLORS = [
     "#ff3333",  # M1 - Intro / Rojo Rodec
     "#ff8c00",  # M2 - Build  / Naranja
     "#ffd100",  # M3 - Drop   / Amarillo
-    "#33ff66",  # M4 - Break  / Verde
+    "#33ff66",  # M4 - Break  / Verde fósforo
     "#00ffcc",  # M5 - Outro  / Turquesa
     "#33aaff",  # M6 - Loop   / Azul claro
     "#bb66ff",  # M7 - Salto  / Violeta
@@ -20,244 +41,311 @@ CUE_COLORS = [
 
 
 def get_ufulu_stylesheet() -> str:
-    """Devuelve el QSS global con la estética Rodec BX-9 v33.7."""
-    return """
-    /* ======================================== */
-    /* PANEL PRINCIPAL                          */
-    /* ======================================== */
-    QMainWindow, QWidget {
-        background-color: #161616;
-        color: #e6e6e6;
+    """Devuelve el QSS global con la estética Rodec BX-9 v33.7 — azul antracita."""
+    return f"""
+    /* ================================================ */
+    /* PANEL PRINCIPAL — chasis Rodec antracita        */
+    /* ================================================ */
+    QMainWindow, QWidget {{
+        background-color: {ROD_PANEL};
+        color: {ROD_TEXT};
         font-family: "Segoe UI", "Helvetica Neue", Arial;
         font-size: 11px;
-    }
+    }}
 
-    QLabel {
-        color: #cfd2d4;
+    QLabel {{
+        color: {ROD_TEXT};
         font-weight: 500;
         letter-spacing: 0.5px;
-    }
+    }}
 
-    /* HEADERS DE MÓDULO */
-    QLabel#maletaHeader {
+    /* HEADERS (placa serigrafiada) */
+    QLabel#maletaHeader {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 #2c2c2c, stop:1 #1a1a1a);
-        color: #00ffcc;
-        font-size: 18px;
+                                    stop:0 {ROD_PANEL_LIGHT},
+                                    stop:1 {ROD_PANEL_DARK});
+        color: {ROD_LED_AMBER};
+        font-size: 17px;
         font-weight: bold;
         padding: 12px;
-        border: 1px solid #444;
-        border-radius: 4px;
-        letter-spacing: 3px;
-    }
+        border: 1px solid {ROD_RING_DARK};
+        border-radius: 3px;
+        letter-spacing: 4px;
+    }}
 
-    QLabel#timeLabel {
-        color: #00ffcc;
-        background: #050505;
-        border: 1px solid #333;
-        padding: 3px 6px;
+    /* DISPLAY LCD numérico — bajo cada knob */
+    QLabel#timeLabel, QLabel.lcdSmall {{
+        color: {ROD_LCD_FG};
+        background: {ROD_LCD_BG};
+        border: 1px solid {ROD_RING_DARK};
+        border-radius: 2px;
+        padding: 3px 8px;
         font-family: "Consolas", "Courier New", monospace;
         font-size: 10px;
+        font-weight: bold;
         min-width: 60px;
-    }
+        letter-spacing: 1px;
+    }}
 
-    QLabel#conteoMaleta {
-        color: #ffaa00;
+    QLabel#conteoMaleta {{
+        color: {ROD_LED_AMBER};
+        background: {ROD_LCD_BG};
+        border: 1px solid {ROD_RING_DARK};
+        padding: 4px 10px;
+        font-family: "Consolas", monospace;
         font-weight: bold;
-        font-size: 11px;
-        padding-right: 12px;
-    }
-
-    /* ======================================== */
-    /* TABS (RACK CENTRAL)                      */
-    /* ======================================== */
-    QTabWidget::pane {
-        background: #111;
-        border-top: 2px solid #444;
-    }
-    QTabBar::tab {
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 #2a2a2a, stop:1 #181818);
-        color: #888;
-        padding: 10px 26px;
-        font-weight: bold;
+        font-size: 10px;
         letter-spacing: 2px;
-        border: 1px solid #333;
-        border-bottom: none;
-    }
-    QTabBar::tab:selected {
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 #3a3a3a, stop:1 #232323);
-        color: #00ffcc;
-        border-top: 2px solid #00ffcc;
-    }
-    QTabBar::tab:hover { color: #fff; }
+    }}
 
-    /* ======================================== */
-    /* GROUP BOXES (RACKS)                      */
-    /* ======================================== */
-    QGroupBox {
-        border: 1px solid #555;
+    /* ================================================ */
+    /* TABS — pestañas de rack                         */
+    /* ================================================ */
+    QTabWidget::pane {{
+        background: {ROD_PANEL};
+        border-top: 2px solid {ROD_RING_SILVER};
+    }}
+    QTabBar::tab {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                    stop:0 {ROD_PANEL_LIGHT},
+                                    stop:1 {ROD_PANEL_DARK});
+        color: {ROD_TEXT_DIM};
+        padding: 11px 28px;
+        font-weight: bold;
+        letter-spacing: 3px;
+        border: 1px solid {ROD_RING_DARK};
+        border-bottom: none;
+    }}
+    QTabBar::tab:selected {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                    stop:0 {ROD_PANEL_LIGHT},
+                                    stop:1 {ROD_PANEL});
+        color: {ROD_LED_AMBER};
+        border-top: 2px solid {ROD_LED_AMBER};
+    }}
+    QTabBar::tab:hover {{ color: {ROD_TEXT}; }}
+
+    /* ================================================ */
+    /* GROUP BOXES — bloques serigrafiados             */
+    /* ================================================ */
+    QGroupBox {{
+        border: 1px solid {ROD_RING_SILVER};
         margin-top: 14px;
         padding-top: 10px;
-        background: #1c1c1c;
+        background: {ROD_PANEL_DARK};
         border-radius: 3px;
         font-weight: bold;
-        color: #00ffcc;
-    }
-    QGroupBox::title {
+        color: {ROD_LED_AMBER};
+        letter-spacing: 2px;
+    }}
+    QGroupBox::title {{
         subcontrol-origin: margin;
         left: 12px;
-        padding: 0 6px;
-        background: #161616;
-    }
+        padding: 0 8px;
+        background: {ROD_PANEL};
+    }}
 
-    /* ======================================== */
-    /* INPUTS                                   */
-    /* ======================================== */
-    QLineEdit, QComboBox {
-        background: #050505;
-        color: #e6e6e6;
-        border: 1px solid #555;
-        padding: 5px;
-        selection-background-color: #00ffcc;
-        selection-color: #000;
-    }
-    QLineEdit#buscadorMaleta {
-        background: #050505;
-        color: #00ffcc;
+    /* ================================================ */
+    /* INPUTS                                          */
+    /* ================================================ */
+    QLineEdit {{
+        background: {ROD_LCD_BG};
+        color: {ROD_LCD_FG};
+        border: 1px solid {ROD_RING_DARK};
+        border-radius: 2px;
+        padding: 5px 8px;
         font-family: "Consolas", monospace;
-        border: 1px solid #00ffcc;
-    }
-    QComboBox::drop-down { border: none; width: 18px; }
-    QComboBox QAbstractItemView {
-        background: #1a1a1a;
-        color: #e6e6e6;
-        selection-background-color: #00ffcc;
-        selection-color: #000;
-    }
+        selection-background-color: {ROD_LED_AMBER};
+        selection-color: {ROD_PANEL_DARK};
+    }}
+    QLineEdit#buscadorMaleta {{
+        background: {ROD_LCD_BG};
+        color: {ROD_LCD_FG};
+        font-family: "Consolas", monospace;
+        font-size: 12px;
+        border: 1px solid {ROD_LCD_GLOW};
+        padding: 7px;
+        letter-spacing: 1px;
+    }}
 
-    /* ======================================== */
-    /* BOTONES                                  */
-    /* ======================================== */
-    QPushButton {
+    /* QComboBox legacy (fallback si quedara alguno) */
+    QComboBox {{
+        background: {ROD_LCD_BG};
+        color: {ROD_LCD_FG};
+        border: 1px solid {ROD_RING_SILVER};
+        padding: 5px 8px;
+        font-family: "Consolas", monospace;
+    }}
+    QComboBox::drop-down {{ border: none; width: 18px; }}
+    QComboBox QAbstractItemView {{
+        background: {ROD_LCD_BG};
+        color: {ROD_LCD_FG};
+        selection-background-color: {ROD_LED_AMBER};
+        selection-color: {ROD_PANEL_DARK};
+    }}
+
+    /* ================================================ */
+    /* BOTONES — pulsadores hardware                   */
+    /* ================================================ */
+    QPushButton {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 #353535, stop:1 #1f1f1f);
-        color: #d8d8d8;
-        border: 1px solid #555;
-        padding: 7px 12px;
+                                    stop:0 {ROD_PANEL_LIGHT},
+                                    stop:1 {ROD_PANEL_DARK});
+        color: {ROD_TEXT};
+        border: 1px solid {ROD_RING_SILVER};
+        border-radius: 2px;
+        padding: 7px 14px;
         font-weight: bold;
         letter-spacing: 1px;
-    }
-    QPushButton:hover {
+    }}
+    QPushButton:hover {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 #4a4a4a, stop:1 #2a2a2a);
-        color: #fff;
-        border: 1px solid #888;
-    }
-    QPushButton:pressed { background: #111; color: #00ffcc; }
-    QPushButton:checked {
-        background: #00aa88; color: #000; border: 1px solid #00ffcc;
-    }
-    QPushButton#injectBtn {
+                                    stop:0 #6a727b,
+                                    stop:1 {ROD_PANEL});
+        color: {ROD_LED_AMBER};
+        border: 1px solid {ROD_TEXT};
+    }}
+    QPushButton:pressed {{
+        background: {ROD_PANEL_DARK};
+        color: {ROD_LED_GREEN};
+    }}
+    QPushButton:checked {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 #b00000, stop:1 #6a0000);
-        color: #fff;
+                                    stop:0 #006633, stop:1 #003319);
+        color: {ROD_LED_GREEN};
+        border: 1px solid {ROD_LED_GREEN};
+    }}
+    /* Botón rojo de inyección — acción fuerte */
+    QPushButton#injectBtn {{
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                    stop:0 #d40000, stop:1 #6a0000);
+        color: white;
         border: 1px solid #ff5555;
         font-size: 12px;
-    }
-    QPushButton#injectBtn:hover {
+        letter-spacing: 2px;
+    }}
+    QPushButton#injectBtn:hover {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 #d40000, stop:1 #800000);
-    }
+                                    stop:0 #ff2020, stop:1 #800000);
+    }}
 
-    /* ======================================== */
-    /* TABLAS                                   */
-    /* ======================================== */
-    QTableWidget {
-        background: #0a0a0a;
-        gridline-color: #2a2a2a;
-        color: #e6e6e6;
-        selection-background-color: #00aa88;
-        selection-color: #000;
-        alternate-background-color: #121212;
-    }
-    QHeaderView::section {
+    /* ================================================ */
+    /* TABLAS — pantallas LCD verde fósforo            */
+    /* ================================================ */
+    QTableWidget {{
+        background: {ROD_LCD_BG};
+        gridline-color: #1a3320;
+        color: {ROD_LCD_FG};
+        font-family: "Consolas", "Courier New", monospace;
+        font-size: 10px;
+        selection-background-color: {ROD_LED_AMBER};
+        selection-color: {ROD_PANEL_DARK};
+        alternate-background-color: #0c1a14;
+        border: 2px solid {ROD_RING_DARK};
+        border-radius: 3px;
+    }}
+    QTableWidget::item {{ padding: 4px; }}
+    QHeaderView::section {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 #2c2c2c, stop:1 #1a1a1a);
-        color: #00ffcc;
-        padding: 6px;
-        border: 1px solid #2a2a2a;
+                                    stop:0 {ROD_PANEL_LIGHT},
+                                    stop:1 {ROD_PANEL_DARK});
+        color: {ROD_LED_AMBER};
+        padding: 7px;
+        border: 1px solid {ROD_RING_DARK};
+        font-family: "Segoe UI", sans-serif;
         font-weight: bold;
-        letter-spacing: 1px;
-    }
+        font-size: 10px;
+        letter-spacing: 2px;
+    }}
 
-    /* ======================================== */
-    /* TREE LATERAL                             */
-    /* ======================================== */
-    QTreeView {
-        background: #0a0a0a;
-        color: #cfd2d4;
-        border: 1px solid #333;
-        selection-background-color: #00aa88;
-        selection-color: #000;
+    /* ================================================ */
+    /* TREE LATERAL — suministro físico                 */
+    /* ================================================ */
+    QTreeView {{
+        background: {ROD_LCD_BG};
+        color: {ROD_LCD_FG};
+        border: 1px solid {ROD_RING_DARK};
+        font-family: "Consolas", monospace;
+        selection-background-color: {ROD_LED_AMBER};
+        selection-color: {ROD_PANEL_DARK};
         outline: 0;
-    }
-    QTreeView::item:hover { background: #1c1c1c; }
+    }}
+    QTreeView::item:hover {{ background: #142820; }}
 
-    /* ======================================== */
-    /* SCROLLBARS                               */
-    /* ======================================== */
-    QScrollBar:vertical {
-        background: #0a0a0a;
+    /* ================================================ */
+    /* SCROLLBARS — barras finas grafito                */
+    /* ================================================ */
+    QScrollBar:vertical {{
+        background: {ROD_PANEL_DARK};
         width: 10px; margin: 0;
-    }
-    QScrollBar::handle:vertical {
-        background: #444;
+    }}
+    QScrollBar::handle:vertical {{
+        background: {ROD_RING_SILVER};
         min-height: 25px;
         border-radius: 2px;
-    }
-    QScrollBar::handle:vertical:hover { background: #00ffcc; }
-    QScrollBar:horizontal {
-        background: #0a0a0a;
+    }}
+    QScrollBar::handle:vertical:hover {{ background: {ROD_LED_AMBER}; }}
+    QScrollBar:horizontal {{
+        background: {ROD_PANEL_DARK};
         height: 10px; margin: 0;
-    }
-    QScrollBar::handle:horizontal {
-        background: #444;
+    }}
+    QScrollBar::handle:horizontal {{
+        background: {ROD_RING_SILVER};
         min-width: 25px;
         border-radius: 2px;
-    }
-    QScrollBar::handle:horizontal:hover { background: #00ffcc; }
-    QScrollBar::add-line, QScrollBar::sub-line { background: none; border: none; }
+    }}
+    QScrollBar::handle:horizontal:hover {{ background: {ROD_LED_AMBER}; }}
+    QScrollBar::add-line, QScrollBar::sub-line {{ background: none; border: none; }}
 
-    /* ======================================== */
-    /* MENUBAR / MENUS                          */
-    /* ======================================== */
-    QMenuBar {
-        background: #1c1c1c;
-        color: #cfd2d4;
-        border-bottom: 1px solid #333;
-    }
-    QMenuBar::item:selected { background: #2c2c2c; color: #00ffcc; }
-    QMenu {
-        background: #1a1a1a;
-        color: #e6e6e6;
-        border: 1px solid #333;
-    }
-    QMenu::item:selected { background: #00aa88; color: #000; }
+    /* ================================================ */
+    /* MENUBAR / MENUS                                  */
+    /* ================================================ */
+    QMenuBar {{
+        background: {ROD_PANEL_DARK};
+        color: {ROD_TEXT};
+        border-bottom: 1px solid {ROD_RING_DARK};
+        font-weight: bold;
+        letter-spacing: 1px;
+    }}
+    QMenuBar::item:selected {{
+        background: {ROD_PANEL_LIGHT};
+        color: {ROD_LED_AMBER};
+    }}
+    QMenu {{
+        background: {ROD_PANEL_DARK};
+        color: {ROD_TEXT};
+        border: 1px solid {ROD_RING_SILVER};
+    }}
+    QMenu::item:selected {{
+        background: {ROD_LED_AMBER};
+        color: {ROD_PANEL_DARK};
+    }}
 
-    /* ======================================== */
-    /* DIALOGOS / MESSAGEBOX                    */
-    /* ======================================== */
-    QDialog, QMessageBox { background: #161616; }
-    QCheckBox { color: #cfd2d4; }
-    QCheckBox::indicator {
+    /* ================================================ */
+    /* DIALOGOS / MESSAGEBOX / CHECKBOX                */
+    /* ================================================ */
+    QDialog, QMessageBox {{ background: {ROD_PANEL}; }}
+    QCheckBox {{ color: {ROD_TEXT}; letter-spacing: 1px; }}
+    QCheckBox::indicator {{
         width: 14px; height: 14px;
-        border: 1px solid #555;
-        background: #0a0a0a;
-    }
-    QCheckBox::indicator:checked {
-        background: #00ffcc;
-        border: 1px solid #00ffcc;
-    }
+        border: 1px solid {ROD_RING_SILVER};
+        background: {ROD_LCD_BG};
+    }}
+    QCheckBox::indicator:checked {{
+        background: {ROD_LED_GREEN};
+        border: 1px solid {ROD_LED_GREEN};
+    }}
+
+    QProgressBar {{
+        background: {ROD_LCD_BG};
+        color: {ROD_TEXT};
+        border: 1px solid {ROD_RING_SILVER};
+        text-align: center;
+        font-family: "Consolas", monospace;
+    }}
+    QProgressBar::chunk {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                    stop:0 {ROD_LED_GREEN},
+                                    stop:1 {ROD_LED_AMBER});
+    }}
     """
