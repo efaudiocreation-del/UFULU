@@ -1,297 +1,246 @@
 # curaduria_engine.py
-# UFULU RODEC EDITION - MOTOR NARRATIVO DE PLAYLISTS v33.7
-# =====================================================
-# Genera "planes de vuelo" musicales en cascada, respetando
-# arco emocional (warm-up / peak / closing), iluminación,
-# densidad y compatibilidad armónica Camelot.
-# =====================================================
+# MOTOR NARRATIVO UFULU: v28.0 - EDICIÓN MAESTRA "PLAN DE VUELO"
+# PROTOCOLO DE RIGOR: PROHIBIDO RESUMIR - INTELIGENCIA MUSICAL PARA CABINA
+#
+# Restaurada literalmente desde la versión original del DJ.
+# Único cambio: la KEY se lee del propio inventario (t[7]) en lugar de
+# re-abrir el archivo, porque tag_manager ahora devuelve (bpm,titulo,artista,cues,genero).
 
 import os
 import random
 from datetime import timedelta
 
 
-# Mapa Camelot: vecinos compatibles (mismo número, ±1, mismo número en otro modo)
-def _camelot_vecinos(key: str):
-    """Devuelve set de claves Camelot compatibles para mezcla armónica."""
-    if not key or key == "-" or len(key) < 2:
-        return set()
-    try:
-        num = int(key[:-1])
-        modo = key[-1].upper()
-        if modo not in ("A", "B"):
-            return set()
-        vecinos = set()
-        # Mismo número, otro modo (relativa mayor/menor)
-        otro = "B" if modo == "A" else "A"
-        vecinos.add(f"{num}{otro}")
-        # ±1 en mismo modo (cuarta/quinta perfecta)
-        for d in (-1, +1):
-            n = ((num - 1 + d) % 12) + 1
-            vecinos.add(f"{n}{modo}")
-        # Mismo
-        vecinos.add(f"{num}{modo}")
-        return vecinos
-    except Exception:
-        return set()
-
-
-# Curva de BPM por momento del set (función del 0..1 dentro del arco)
-def _curva_bpm(momento: str, t01: float) -> float:
-    """Devuelve un offset multiplicador (factor sobre BPM base)."""
-    momento = (momento or "").upper()
-    if "WARM" in momento:
-        return 0.92 + 0.08 * t01            # +0..+8%
-    if "PEAK" in momento or "CÉNIT" in momento:
-        return 1.00 + 0.04 * (1 - abs(2 * t01 - 1))  # campana +0..+4%
-    if "CLOS" in momento:
-        return 1.00 - 0.10 * t01            # decay -0..-10%
-    return 1.0
-
-
-def _densidad_a_minutos(densidad: str) -> float:
-    """Minutos medios por tema para calcular cuántos meter."""
-    d = (densidad or "").upper()
-    if "RÁPID" in d or "RAPID" in d: return 4.0
-    if "LARG" in d:                  return 8.0
-    return 6.0  # NORMAL
-
-
-def _bpm_a_int(v) -> int:
-    try:
-        return int(round(float(v)))
-    except Exception:
-        return 0
-
-
-# =====================================================
-# ALGORITMO PRINCIPAL: GENERAR SESIÓN
-# =====================================================
-def generar_sesion_ufulu(pool, config: dict):
+# --- [MÓDULO 1: ALGORITMO ARMÓNICO CAMELOT PRO] ---
+def calcular_compatibilidad_armonica(key1, key2, nivel_tolerancia=0):
     """
-    pool: lista de filas
-        (filename, bpm, funcion, color, estilo, path, energia, key, conf)
-    config: dict con luz/momento/duracion/densidad/estilo/usar_semilla/semilla
-
-    Devuelve: lista de items {tiempo, acto, motivo, data}
+    Rueda Camelot Inteligente.
+    Nivel 0: Match Perfecto (11A -> 11A) o Relativa de Modo (11A -> 11B).
+    Nivel 1: Salto de Energía Lateral (11A -> 12A / 10A).
+    Nivel 2: Salto de Energía +2 (Boost de mezcla dinámica).
     """
-    if not pool:
-        return []
-
-    luz       = (config.get("luz") or "").upper()
-    momento   = (config.get("momento") or "").upper()
-    densidad  = config.get("densidad") or "NORMAL"
-    estilo_b  = (config.get("estilo") or "TODOS").upper()
-    usar_sem  = bool(config.get("usar_semilla"))
-    semilla   = config.get("semilla") or ""
+    if key1 == "-" or key2 == "-": return True
+    if key1 == key2: return True
 
     try:
-        duracion_min = max(15, int(float(config.get("duracion", 90))))
+        # Extracción de valor numérico y escala (Ej: "11A" -> 11, "A")
+        n1, escala1 = int(key1[:-1]), key1[-1].upper()
+        n2, escala2 = int(key2[:-1]), key2[-1].upper()
+
+        # 1. CAMBIO DE MODO (MISMA ENERGÍA): 11A -> 11B
+        if n1 == n2 and escala1 != escala2:
+            return True
+
+        # 2. SALTOS LATERALES (RUEDA): +/- 1
+        if escala1 == escala2:
+            # Diferencia simple
+            if abs(n1 - n2) == 1: return True
+            # Cierre de círculo (12 a 1)
+            if (n1 == 12 and n2 == 1) or (n1 == 1 and n2 == 12): return True
+
+        # 3. MODO TOLERANCIA DINÁMICA (Para mezclas de alta energía)
+        if nivel_tolerancia >= 1:
+            # Saltos de +2 o compatibilidad extendida
+            if escala1 == escala2 and abs(n1 - n2) == 2: return True
+
     except Exception:
-        duracion_min = 90
+        print(f"Aviso Armónico: Formato de Key no reconocido ({key1} -> {key2})")
 
-    min_por_tema = _densidad_a_minutos(densidad)
-    n_objetivo = max(4, int(round(duracion_min / min_por_tema)))
+    return False
 
-    # 1) FILTRO BASE
-    candidatos = []
-    for r in pool:
-        fn, bpm, func, color, estilo, path, ener, key, conf = r
-        if estilo_b != "TODOS" and estilo_b not in (estilo or "").upper():
-            continue
-        if luz and luz not in (color or "").upper():
-            # Permisivo: en warm-up de sesión NOCHE aún admitimos algo de DÍA
-            if not (luz == "NOCHE" and "DÍA" in (color or "").upper()):
-                continue
-        if _bpm_a_int(bpm) <= 0:
-            continue
-        candidatos.append(r)
 
-    if len(candidatos) < 4:
-        # Reintenta sin filtro de estilo
-        candidatos = [r for r in pool if _bpm_a_int(r[1]) > 0]
-    if not candidatos:
-        return []
+# --- [MÓDULO 2: ARCO NARRATIVO DE 6 ACTOS] ---
+def obtener_estructura_literaria(momento):
+    """
+    Define la progresión de la sesión según el arco dramático clásico.
+    1. OPEN | 2. HOLD | 3. SHIFT | 4. PEAK | 5. DROP | 6. OUTRO
+    """
+    if "WARM-UP" in momento.upper():
+        # Curva ascendente lenta
+        return ["1. OPEN", "1. OPEN", "2. HOLD", "2. HOLD", "3. SHIFT", "2. HOLD"]
 
-    # 2) BPM BASE
-    bpm_base = 122.0
-    if usar_sem and semilla:
-        for r in pool:
-            if r[5] == semilla:
-                bpm_base = max(80.0, float(_bpm_a_int(r[1]) or 122))
-                break
+    elif "PEAK" in momento.upper():
+        # Energía máxima constante con giros
+        return ["2. HOLD", "3. SHIFT", "4. PEAK", "4. PEAK", "3. SHIFT", "4. PEAK"]
 
-    # 3) CONSTRUCCIÓN EN CASCADA
-    seleccion = []
-    usados = set()
+    elif "CLOSING" in momento.upper():
+        # Descenso emocional controlado
+        return ["4. PEAK", "4. PEAK", "3. SHIFT", "2. HOLD", "1. OPEN", "1. OPEN"]
 
-    # Si tenemos semilla, la metemos primero
-    if usar_sem and semilla:
-        for r in pool:
-            if r[5] == semilla:
-                seleccion.append({
-                    "track": r,
-                    "motivo": "Semilla del DJ"
-                })
-                usados.add(r[5])
-                break
+    # Fallback equilibrado
+    return ["1. OPEN", "2. HOLD", "3. SHIFT", "4. PEAK", "3. SHIFT", "1. OPEN"]
 
-    while len(seleccion) < n_objetivo:
-        t01 = (len(seleccion)) / max(1, n_objetivo - 1)
-        bpm_obj = bpm_base * _curva_bpm(momento, t01)
 
-        prev = seleccion[-1]["track"] if seleccion else None
-        prev_key = prev[7] if prev else None
-        vecinos = _camelot_vecinos(prev_key) if prev_key else set()
+# --- [MÓDULO 3: MOTOR DE SELECCIÓN EN CASCADA] ---
+def generar_sesion_ufulu(pool_total, config):
+    """
+    Construye la playlist definitiva cruzando metadatos físicos y forenses.
+    pool_total: [(filename, bpm, func, luz, estilo, path, energia, key, conf), ...]
+    """
+    if not pool_total: return []
 
-        mejor = None
-        mejor_score = -1e9
-        mejor_motivo = "Continuidad"
+    # 1. PARAMETRIZACIÓN DEL TIEMPO
+    densidad = config.get('densidad', 'NORMAL')
+    # Minutos por track: Rápida (4 min), Normal (6 min), Larga (10 min)
+    t_per_track = 4 if "RÁPIDA" in densidad else (10 if "LARGA" in densidad else 6)
+    duracion_min = int(config.get('duracion', 60))
+    n_objetivo = duracion_min // t_per_track
 
-        for r in candidatos:
-            if r[5] in usados:
-                continue
-            fn, bpm, func, color, estilo, path, ener, key, conf = r
-            b = _bpm_a_int(bpm)
-            if b <= 0:
-                continue
+    # 2. FILTRADO INICIAL (ADN DE ESTILO)
+    estilo_req = config.get('estilo', 'TODOS').upper()
+    luz_req = config.get('luz', 'DÍA').upper()
+    pool_estilo = [t for t in pool_total
+                   if estilo_req == "TODOS" or estilo_req in str(t[4]).upper()]
 
-            # Score: cercanía al BPM objetivo (penaliza salto >6)
-            d_bpm = abs(b - bpm_obj)
-            score = -d_bpm * 1.2
+    # 3. PREPARACIÓN DEL ARCO
+    arco = obtener_estructura_literaria(config.get('momento', 'WARM-UP'))
+    playlist_final = []
+    tiempo_acumulado = 0
 
-            # Compatibilidad armónica
-            if vecinos and key in vecinos:
-                score += 8.0
-                motivo = f"Compat. armónica ({prev_key}→{key})"
+    def _key_de(track):
+        """Lee la KEY directamente del inventario (t[7]) sin abrir el archivo."""
+        try:
+            return track[7] if len(track) > 7 and track[7] else "-"
+        except Exception:
+            return "-"
+
+    # 4. BUCLE DE NARRATIVA MUSICAL
+    for i in range(n_objetivo):
+        # Determinamos la fase del arco según la progresión
+        fase_actual = arco[int((i / n_objetivo) * len(arco))]
+
+        # Obtenemos la tonalidad del track anterior para el match armónico
+        key_anterior = "-"
+        if playlist_final:
+            key_anterior = _key_de(playlist_final[-1]['data'])
+
+        candidato_elegido = None
+        motivo_eleccion = ""
+
+        # Candidatos base: misma fase del arco, luz coincidente y no repetidos
+        # Estructura t: (0:filename, 1:bpm, 2:func, 3:luz, 4:estilo, 5:path, 6:energia, 7:key, 8:conf)
+        cands_base = [t for t in pool_estilo
+                      if t[2] == fase_actual
+                      and t[3] == luz_req
+                      and t not in [p['data'] for p in playlist_final]]
+
+        # --- ESTRATEGIA DE CASCADA (4 NIVELES DE RIGOR) ---
+
+        # NIVEL 1: Rigor Armónico (Match Perfecto / Cambio de Modo)
+        match_1 = [c for c in cands_base
+                   if calcular_compatibilidad_armonica(key_anterior, _key_de(c), 0)]
+
+        if match_1:
+            candidato_elegido = random.choice(match_1)
+            motivo_eleccion = f"Match Armónico Perfecto ({fase_actual})"
+        else:
+            # NIVEL 2: Tolerancia Camelot (Salto +/- 1 o Energía +2)
+            match_2 = [c for c in cands_base
+                       if calcular_compatibilidad_armonica(key_anterior, _key_de(c), 1)]
+            if match_2:
+                candidato_elegido = random.choice(match_2)
+                motivo_eleccion = f"Transición de Energía ({fase_actual})"
             else:
-                motivo = f"BPM Δ{d_bpm:.0f}"
+                # NIVEL 3: Salto de Perímetro (Cualquier tema de la fase, ignorando luz)
+                match_3 = [t for t in pool_estilo
+                           if t[2] == fase_actual
+                           and t not in [p['data'] for p in playlist_final]]
+                if match_3:
+                    candidato_elegido = random.choice(match_3)
+                    motivo_eleccion = f"Ajuste de Fase ({fase_actual})"
+                else:
+                    # NIVEL 4: Supervivencia (Stock agotado en fase, buscar en pool estilo libre)
+                    match_4 = [t for t in pool_estilo
+                              if t not in [p['data'] for p in playlist_final]]
+                    if not match_4: break  # Maleta vacía
+                    candidato_elegido = random.choice(match_4)
+                    motivo_eleccion = "Selección de Emergencia (Sin stock en fase)"
 
-            # Energía coherente con momento
-            try:
-                e = int(ener)
-                if "PEAK" in momento and e >= 7: score += 3
-                if "WARM" in momento and e <= 5: score += 3
-                if "CLOS" in momento and 4 <= e <= 7: score += 2
-            except Exception:
-                pass
+        # Inyección de Semilla (Si es el primer track)
+        if i == 0 and config.get('usar_semilla') and config.get('semilla'):
+            sem_path = config.get('semilla')
+            for t in pool_total:
+                if t[5] == sem_path:
+                    candidato_elegido = t
+                    motivo_eleccion = "Semilla Literaria (Origen)"
+                    break
 
-            # Confidence
-            try:
-                score += int(conf) * 0.02
-            except Exception:
-                pass
+        if candidato_elegido:
+            playlist_final.append({
+                'tiempo': str(timedelta(minutes=tiempo_acumulado))[:-3],
+                'acto': fase_actual,
+                'data': candidato_elegido,
+                'motivo': motivo_eleccion
+            })
+            tiempo_acumulado += t_per_track
 
-            # Pequeño ruido para no encasillar siempre lo mismo
-            score += random.uniform(0, 0.6)
-
-            if score > mejor_score:
-                mejor_score = score
-                mejor = r
-                mejor_motivo = motivo
-
-        if not mejor:
-            break
-        seleccion.append({"track": mejor, "motivo": mejor_motivo})
-        usados.add(mejor[5])
-
-    # 4) MAPEO A SALIDA con tiempos y actos
-    salida = []
-    minutos_acum = 0.0
-    for i, item in enumerate(seleccion):
-        t01 = i / max(1, len(seleccion) - 1)
-        if t01 < 0.25:   acto = "1·APERTURA"
-        elif t01 < 0.55: acto = "2·DESARROLLO"
-        elif t01 < 0.80: acto = "3·CÉNIT"
-        else:            acto = "4·CIERRE"
-        td = timedelta(minutes=int(minutos_acum))
-        salida.append({
-            "tiempo": str(td)[:-3] if str(td).count(":") == 2 else str(td),
-            "acto":   acto,
-            "motivo": item["motivo"],
-            "data":   item["track"],
-        })
-        minutos_acum += min_por_tema
-    return salida
+    return playlist_final
 
 
-# =====================================================
-# SUGERIR SIGUIENTE TEMA (botón "El Taller")
-# =====================================================
-def sugerir_siguiente_track(track_actual, pool, n: int = 8):
+# --- [MÓDULO 4: REDACTOR DEL PLAN DE VUELO] ---
+def generar_texto_guia(playlist, config):
+    """Genera la Guía Técnica de Cabina en formato industrial"""
+    if not playlist: return "ERROR: NO SE PUDO GENERAR NARRATIVA."
+
+    txt = "========================================================\n"
+    txt += "        UFULU DJ SYSTEM - PLAN DE VUELO ANALÓGICO       \n"
+    txt += f"        MALETA: {config.get('maleta', 'GLOBAL').upper()} \n"
+    txt += "========================================================\n\n"
+
+    txt += f"PARÁMETROS: {config.get('luz')} | {config.get('momento')} | {config.get('duracion')} MIN\n"
+    txt += "-" * 56 + "\n\n"
+
+    for i, item in enumerate(playlist):
+        d = item['data']  # (filename, bpm, func, luz, estilo, path, ...)
+        txt += f"[{item['tiempo']}] PASO {i+1:02d} | {item['acto']}\n"
+        txt += f"   TEMA: {d[0]}\n"
+        txt += f"   TÉCNICA: {d[1]} BPM | {d[4]} | {item['motivo']}\n"
+        txt += "." * 40 + "\n"
+
+    txt += "\nFIN DE HOJA DE RUTA - UFULU NARRATIVE ENGINE v28.0"
+    return txt
+
+
+# --- [MÓDULO 5: SUGERIDOR DE SIGUIENTE TEMA - botón "El Taller"] ---
+# (Nuevo en v33.7 — usa la misma lógica Camelot del Módulo 1)
+def sugerir_siguiente_track(track_actual, pool, n=8):
     """
-    Devuelve hasta N candidatos ordenados por compatibilidad.
-    Cada item: {nivel, track, delta_bpm, motivo}
-    nivel: 1 (perfect), 2 (bueno), 3 (rescate)
+    Devuelve hasta N candidatos ordenados por compatibilidad Camelot + cercanía BPM.
+    nivel: 1 (perfect) · 2 (bueno) · 3 (rescate)
     """
-    if not track_actual or not pool:
-        return []
+    if not track_actual or not pool: return []
 
     fn_a, bpm_a, func_a, color_a, est_a, path_a, ener_a, key_a, conf_a = track_actual
-    bpm_base = _bpm_a_int(bpm_a)
-    vecinos = _camelot_vecinos(key_a)
+    try: bpm_base = int(float(bpm_a))
+    except Exception: bpm_base = 120
 
     sugs = []
     for r in pool:
-        if r[5] == path_a:
-            continue
-        fn, bpm, func, color, estilo, path, ener, key, conf = r
-        b = _bpm_a_int(bpm)
-        if b <= 0:
-            continue
-        d = abs(b - bpm_base)
-        if d > 12:
-            continue
+        if r[5] == path_a: continue
+        try: b = int(float(r[1]))
+        except Exception: continue
+        if b <= 0: continue
+        d_bpm = abs(b - bpm_base)
+        if d_bpm > 12: continue
 
-        if d <= 3 and key in vecinos:
-            nivel = 1
-            motivo = f"Perfect: Δ={d} y Camelot OK"
-        elif d <= 6 and (key in vecinos or not vecinos):
-            nivel = 2
-            motivo = f"Bueno: Δ={d}" + (" + Camelot" if key in vecinos else "")
-        elif d <= 12:
-            nivel = 3
-            motivo = f"Rescate: Δ={d}"
+        key_r = r[7] if len(r) > 7 else "-"
+
+        # Niveles de compatibilidad usando la rueda Camelot del Módulo 1
+        if calcular_compatibilidad_armonica(key_a, key_r, 0) and d_bpm <= 3:
+            nivel = 1; motivo = f"Match Armónico Perfecto · Δ={d_bpm}"
+        elif calcular_compatibilidad_armonica(key_a, key_r, 1) and d_bpm <= 6:
+            nivel = 2; motivo = f"Transición de Energía · Δ={d_bpm}"
+        elif d_bpm <= 12:
+            nivel = 3; motivo = f"Rescate · Δ={d_bpm}"
         else:
             continue
 
         sugs.append({
-            "nivel":     nivel,
-            "track":     r,
-            "delta_bpm": float(d),
-            "motivo":    motivo,
+            'nivel': nivel,
+            'track': r,
+            'delta_bpm': float(d_bpm),
+            'motivo': motivo,
         })
 
-    sugs.sort(key=lambda s: (s["nivel"], s["delta_bpm"]))
+    sugs.sort(key=lambda s: (s['nivel'], s['delta_bpm']))
     return sugs[:n]
-
-
-# =====================================================
-# GENERAR TEXTO (HOJA DE RUTA / GUÍA DE CABINA)
-# =====================================================
-def generar_texto_guia(playlist, config: dict) -> str:
-    if not playlist:
-        return "PLAN DE VUELO VACÍO\n"
-    cab = "=" * 64
-    out = []
-    out.append(cab)
-    out.append("UFULU · RODEC EDITION  ·  HOJA DE RUTA DE CABINA")
-    out.append(cab)
-    out.append(f"MALETA   : {config.get('maleta','GLOBAL')}")
-    out.append(f"DURACIÓN : {config.get('duracion','-')} min")
-    out.append("")
-    out.append(f"{'INICIO':<8} {'ACTO':<14} {'BPM':<5} {'KEY':<4} TRACK")
-    out.append("-" * 64)
-    for item in playlist:
-        d = item.get("data") or [""] * 8
-        fn = os.path.basename(str(d[0])) if d and d[0] else "?"
-        bpm = str(d[1]) if len(d) > 1 else "?"
-        key = str(d[7]) if len(d) > 7 else "-"
-        out.append(
-            f"{item.get('tiempo','-'):<8} {item.get('acto','-'):<14} "
-            f"{bpm:<5} {key:<4} {fn[:42]}"
-        )
-        out.append(f"         └─ {item.get('motivo','')}")
-    out.append("")
-    out.append(cab)
-    return "\n".join(out)
