@@ -127,9 +127,9 @@ def leer_tags_completos(ruta):
         return bpm, titulo, artista, cues_vacia, genero
 
 
-def escribir_tags_ufulu(ruta, bpm, funcion, cues=None):
+def escribir_tags_ufulu(ruta, bpm, funcion, luz="", estilo="", cues=None):
     """Sella el ADN en el archivo físico compatible con Traktor Pro.
-    Soporta MP3 (ID3v2) y FLAC (Vorbis)."""
+    Guarda BPM, función, luz, estilo y cues."""
     try:
         ext = ruta.lower().rsplit(".", 1)[-1] if "." in ruta else ""
 
@@ -138,30 +138,51 @@ def escribir_tags_ufulu(ruta, bpm, funcion, cues=None):
             try:
                 audio = ID3(ruta)
             except Exception:
-                # Crea ID3 vacío si no existe
                 audio = ID3()
-            # TBPM = BPM | TPE4 = Remixer (Función Ufulu)
+
             audio.add(TBPM(encoding=3, text=str(bpm)))
             audio.add(TPE4(encoding=3, text=str(funcion)))
 
-            if cues:
-                # Borramos comentarios UFULU previos (evita hinchado)
-                try:
-                    nuevos = []
-                    for c in audio.getall("COMM"):
-                        if getattr(c, "desc", "") != "UFULU_DATA":
-                            nuevos.append(c)
-                    audio.delall("COMM")
-                    for c in nuevos:
-                        audio.add(c)
-                except Exception:
-                    pass
+            # limpiamos comentarios UFULU previos
+            try:
+                nuevos = []
+                for c in audio.getall("COMM"):
+                    if getattr(c, "desc", "") != "UFULU_DATA":
+                        nuevos.append(c)
+                audio.delall("COMM")
+                for c in nuevos:
+                    audio.add(c)
+            except Exception:
+                pass
 
-                cue_list = [f"{k}:{v:.3f}" for k, v in cues.items() if v is not None]
+            bloques = []
+
+            if luz:
+                bloques.append(f"LUZ:{luz}")
+
+            if estilo:
+                bloques.append(f"ESTILO:{estilo}")
+
+            if cues:
+                cue_list = [
+                    f"{k}:{v:.3f}"
+                    for k, v in cues.items()
+                    if v is not None
+                ]
                 if cue_list:
-                    serializado = "UFULU_CUES|" + "|".join(cue_list)
-                    audio.add(COMM(encoding=3, lang="eng",
-                                   desc="UFULU_DATA", text=serializado))
+                    bloques.append("UFULU_CUES")
+                    bloques.extend(cue_list)
+
+            if bloques:
+                serializado = "|".join(bloques)
+                audio.add(
+                    COMM(
+                        encoding=3,
+                        lang="eng",
+                        desc="UFULU_DATA",
+                        text=serializado
+                    )
+                )
 
             audio.save(ruta, v2_version=3)
             return True
@@ -169,18 +190,32 @@ def escribir_tags_ufulu(ruta, bpm, funcion, cues=None):
         # ---------- FLAC ----------
         if ext == "flac":
             audio = FLAC(ruta)
+
             audio["bpm"] = str(bpm)
-            audio["remixer"] = str(funcion)  # campo Vorbis equivalente
+            audio["remixer"] = str(funcion)
+
+            if luz:
+                audio["comment"] = str(luz)
+
+            if estilo:
+                audio["genre"] = str(estilo)
+
             if cues:
-                cue_list = [f"{k}:{v:.3f}" for k, v in cues.items() if v is not None]
+                cue_list = [
+                    f"{k}:{v:.3f}"
+                    for k, v in cues.items()
+                    if v is not None
+                ]
                 if cue_list:
                     audio["ufulu_cues"] = "UFULU_CUES|" + "|".join(cue_list)
+
             audio.save()
             return True
 
     except Exception as e:
         print(f"Error escritura física en {os.path.basename(ruta)}: {e}")
         return False
+
     return False
 
 

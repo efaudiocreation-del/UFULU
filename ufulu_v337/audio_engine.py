@@ -172,6 +172,7 @@ class EngineUfulu(QThread):
             return "-"
 
     def run(self):
+        print(f"[ENGINE] HILO INICIADO con {len(self.archivos)} archivos")
         for indice, ruta in enumerate(self.archivos):
             try:
                 sr_proc = 22050
@@ -194,11 +195,20 @@ class EngineUfulu(QThread):
                 else:
                     puntos_anclaje = [60.0, dur_total / 2.0, max(0.0, dur_total - 60.0)]
 
+                # Cargar con soundfile (rápido, usa frecuencia nativa)
+                try:
+                    import soundfile as sf
+                    y_all, sr_sondeo = sf.read(ruta, dtype='float32')
+                    if len(y_all.shape) > 1:
+                        y_all = y_all.mean(axis=1)
+                except Exception:
+                    y_all, sr_sondeo = librosa.load(ruta, sr=None, mono=True)
                 for pt in puntos_anclaje:
                     if pt < dur_total:
-                        offset_v = min(float(pt), max(0.0, dur_total - segundos_ventana))
-                        y_v, _ = librosa.load(ruta, offset=offset_v, duration=segundos_ventana, sr=sr_proc)
-                        res_ventana, conf_ventana = self.analizar_sondeo(y_v, sr_proc)
+                        offset_s = max(0, int(min(pt, dur_total - segundos_ventana) * sr_sondeo))
+                        n_s = int(segundos_ventana * sr_sondeo)
+                        y_v = y_all[offset_s:offset_s + n_s]
+                        res_ventana, conf_ventana = self.analizar_sondeo(y_v, sr_sondeo)
                         if res_ventana > 0:
                             resultados_sondas.append(res_ventana)
                             resultados_confidence.append(conf_ventana)

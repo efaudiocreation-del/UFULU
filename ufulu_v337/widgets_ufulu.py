@@ -43,25 +43,23 @@ class SplashWelcome(QDialog):
         ly.setSpacing(15)
 
         # Cabecera
-        titulo = QLabel("UFULU · RODEC EDITION")
+        # --- Icono UFULU ---
+        icono = QLabel()
+        pixmap = QPixmap("ufulu.ico")
+        if not pixmap.isNull():
+            icono.setPixmap(pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        icono.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ly.addWidget(icono)
+
+        titulo = QLabel("UFULU RODEC EDITION")
         titulo.setStyleSheet(
             "color:#00ffcc; font-size:22px; font-weight:bold; "
             "letter-spacing:6px;"
         )
         titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        subtitulo = QLabel("CONSOLA FORENSE DE PROCESADO ANALÓGICO  ·  v33.7")
-        subtitulo.setStyleSheet(
-            "color:#888; font-size:10px; letter-spacing:3px;"
-        )
-        subtitulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        ly.addWidget(titulo)
-        ly.addWidget(subtitulo)
-        ly.addSpacing(20)
-
         # Caja de selección
-        lbl = QLabel("MALETA RAÍZ (CARPETA DE SUMINISTRO)")
+        lbl = QLabel("MALETA")
         lbl.setStyleSheet("color:#cfd2d4; font-weight:bold; letter-spacing:2px;")
 
         ruta_ly = QHBoxLayout()
@@ -70,7 +68,7 @@ class SplashWelcome(QDialog):
             "background:#050505; color:#00ffcc; border:1px solid #00ffcc; "
             "padding:8px; font-family:Consolas; font-size:11px;"
         )
-        btn_browse = QPushButton("EXAMINAR…")
+        btn_browse = QPushButton("ENCUENTRALA")
         btn_browse.clicked.connect(self._examinar)
         btn_browse.setFixedWidth(110)
         btn_browse.setStyleSheet(
@@ -93,7 +91,7 @@ class SplashWelcome(QDialog):
         btn_cancel.clicked.connect(self.reject)
         btn_cancel.setFixedWidth(110)
 
-        btn_ok = QPushButton("ENCENDER CONSOLA")
+        btn_ok = QPushButton("ARRANCAR SUIT")
         btn_ok.clicked.connect(self._aceptar)
         btn_ok.setFixedWidth(180)
         btn_ok.setStyleSheet(
@@ -177,7 +175,7 @@ class SplashForense(QDialog):
     def update_prog(self, actual: int, total: int):
         self.bar.setMaximum(max(1, total))
         self.bar.setValue(actual)
-        self.lbl_estado.setText(f"PROCESANDO {actual} / {total} ARCHIVOS…")
+        self.lbl_estado.setText(f"ANALIZANDO {actual} / {total} TEMAS")
         if actual >= total:
             self.lbl_estado.setText("ANÁLISIS FINALIZADO")
             # Auto-cierre breve

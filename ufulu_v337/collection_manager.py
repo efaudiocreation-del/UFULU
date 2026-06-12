@@ -10,15 +10,22 @@ import json
 import sqlite3
 import shutil
 from datetime import datetime, timedelta
-
+import sys
+from genre_definitions import RANGOS_BPM
 
 DB_FILENAME = "ufulu_almacen.db"
 BACKUP_DIRNAME = "ufulu_backups"
 
 
+
 def _db_path() -> str:
     """Ruta de la BD junto al ejecutable / al lado de main.py."""
-    base = os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, 'frozen', False):
+        # Compilado con PyInstaller: usar el directorio del .exe
+        base = os.path.dirname(sys.executable)
+    else:
+        # En desarrollo: usar el directorio del script
+        base = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base, DB_FILENAME)
 
 
@@ -29,17 +36,6 @@ def _backup_dir() -> str:
     return d
 
 
-# -------------------------------------------------------
-# Rangos plausibles de BPM por estilo (juzgar coherencia)
-# -------------------------------------------------------
-RANGOS_BPM = {
-    "AMAPIANO": (108, 118),
-    "ORGANIC":  (110, 124),
-    "HOUSE":    (118, 130),
-    "MINIMAL":  (122, 130),
-    "TECHNO":   (124, 138),
-    "PSY":      (135, 150),
-}
 
 
 class CollectionManager:
@@ -169,7 +165,7 @@ class CollectionManager:
             archivos = [
                 os.path.join(path_carpeta, f)
                 for f in os.listdir(path_carpeta)
-                if f.lower().endswith(('.mp3', '.flac'))
+                if f.lower().endswith(('.mp3', '.flac', '.wav', '.webm', '.opus'))
             ]
             if not archivos:
                 return False
@@ -232,7 +228,7 @@ class CollectionManager:
     def get_tracks_in_folder(self, carpeta: str):
         """Devuelve filas tipo (filename, bpm, funcion, color, estilo, path, energia, key, conf)."""
         c = self._conn.cursor()
-        like = os.path.join(carpeta, "") + "%"
+        like = carpeta.rstrip(os.sep) + os.sep + "%"
         rows = c.execute("""
             SELECT filename, bpm, funcion, color, estilo, path,
                    energia, key_camelot, bpm_confidence

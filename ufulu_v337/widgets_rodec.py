@@ -5,9 +5,10 @@
 # RodecKnobSelector  - selector rotatorio (drop-in QComboBox)
 # RodecLCD           - display LCD verde fósforo
 # RodecVUMeter       - barra LED vertical green/amber/red
+# RodecFader         - fader vertical estilo mezclador Rodec
 # =====================================================
 
-from PyQt6.QtWidgets import QDial, QWidget, QLabel, QVBoxLayout, QSizePolicy
+from PyQt6.QtWidgets import QDial, QWidget, QLabel, QVBoxLayout, QSizePolicy, QSlider
 from PyQt6.QtGui import (
     QPainter, QColor, QPen, QBrush, QRadialGradient, QLinearGradient,
     QFont, QPainterPath
@@ -289,4 +290,65 @@ class RodecVUMeter(QWidget):
                 col_on, col_off = QColor("#ff3030"), QColor("#2a0808")
             p.fillRect(QRectF(2, y, w - 4, seg_h - 2),
                        col_on if i < encendidos else col_off)
+        p.end()
+
+
+# -------------------------------------------------------
+# RodecFader — fader vertical estilo mezclador Rodec
+# -------------------------------------------------------
+class RodecFader(QSlider):
+    """Fader vertical con marcas de graduación y estética Rodec BX-9."""
+    def __init__(self, minimum=0, maximum=100, style="amber", parent=None):
+        super().__init__(Qt.Orientation.Vertical, parent)
+        self.setRange(minimum, maximum)
+        self.setSingleStep(1)
+        self.setPageStep(1)
+        self.setFixedWidth(30)
+        self.setMinimumHeight(100)
+        self._color = {
+            "amber": QColor("#E0A83A"),
+            "green": QColor("#3CFF7A"),
+            "red":   QColor("#D94B3D"),
+            "cyan":  QColor("#00ffcc"),
+            "white": QColor("#CCCCCC"),
+        }.get(style, QColor("#E0A83A"))
+        self.valueChanged.connect(self.update)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        track_w, track_x = 4, w // 2 - 2
+        handle_w, handle_h = 18, 12
+        handle_x = w // 2 - handle_w // 2
+        val_range = self.maximum() - self.minimum() or 1
+        val_ratio = (self.value() - self.minimum()) / val_range
+        handle_y = int((1 - val_ratio) * (h - handle_h))
+
+        # Marcas de graduación
+        p.setPen(QPen(QColor("#8E98A3"), 1))
+        step = max(1, val_range // 10)
+        for i in range(self.minimum(), self.maximum() + 1, step):
+            y = int((1 - (i - self.minimum()) / val_range) * (h - 2)) + 1
+            p.drawLine(track_x + track_w + 2, y, track_x + track_w + 6, y)
+            p.drawLine(track_x - 6, y, track_x - 2, y)
+
+        # Ranura (track)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor("#1a1d20"))
+        p.drawRect(track_x, 0, track_w, h)
+
+        # Handle (knob negro alargado)
+        gradient = QLinearGradient(handle_x, handle_y, handle_x + handle_w, handle_y + handle_h)
+        gradient.setColorAt(0, QColor("#2a2d30"))
+        gradient.setColorAt(0.5, QColor("#181a1c"))
+        gradient.setColorAt(1, QColor("#0a0c0e"))
+        p.setBrush(QBrush(gradient))
+        p.setPen(QPen(QColor("#D6D2C4"), 1))
+        p.drawRoundedRect(handle_x, handle_y, handle_w, handle_h, 3, 3)
+
+        # Indicador de color central
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(self._color))
+        p.drawRect(handle_x + 6, handle_y + 4, handle_w - 12, handle_h - 8)
         p.end()
