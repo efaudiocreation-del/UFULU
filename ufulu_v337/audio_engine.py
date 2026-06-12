@@ -172,14 +172,19 @@ class EngineUfulu(QThread):
             return "-"
 
     def run(self):
-        print(f"[ENGINE] HILO INICIADO con {len(self.archivos)} archivos")
+        print(f"[ENGINE] HILO INICIADO con {len(self.archivos)} archivos", flush=True)
         for indice, ruta in enumerate(self.archivos):
             try:
+                print(f"[ENGINE] -> ({indice+1}/{len(self.archivos)}) {os.path.basename(ruta)}", flush=True)
                 sr_proc = 22050
                 if not os.path.exists(ruta):
+                    print(f"[ENGINE]    NO EXISTE, salto", flush=True)
                     continue
+                print(f"[ENGINE]    1/5 leyendo duración…", flush=True)
                 dur_total = librosa.get_duration(path=ruta)
+                print(f"[ENGINE]    duración={dur_total:.1f}s", flush=True)
 
+                print(f"[ENGINE]    2/5 leyendo tags…", flush=True)
                 t_bpm, t_titulo, t_artista, t_cues, t_genero = tag_manager.leer_tags_completos(ruta)
                 bpm_referencia = float(t_bpm) if (t_bpm and t_bpm != "0") else 120.0
                 nombre_mostrable = t_titulo if (t_titulo and t_titulo.strip()) else os.path.basename(ruta)
@@ -196,13 +201,18 @@ class EngineUfulu(QThread):
                     puntos_anclaje = [60.0, dur_total / 2.0, max(0.0, dur_total - 60.0)]
 
                 # Cargar con soundfile (rápido, usa frecuencia nativa)
+                print(f"[ENGINE]    3/5 cargando audio con soundfile…", flush=True)
                 try:
                     import soundfile as sf
                     y_all, sr_sondeo = sf.read(ruta, dtype='float32')
                     if len(y_all.shape) > 1:
                         y_all = y_all.mean(axis=1)
-                except Exception:
+                    print(f"[ENGINE]    soundfile OK  sr={sr_sondeo}  muestras={len(y_all)}", flush=True)
+                except Exception as e_sf:
+                    print(f"[ENGINE]    soundfile FAIL: {e_sf} -> fallback a librosa.load", flush=True)
                     y_all, sr_sondeo = librosa.load(ruta, sr=None, mono=True)
+                    print(f"[ENGINE]    librosa.load OK  sr={sr_sondeo}  muestras={len(y_all)}", flush=True)
+                print(f"[ENGINE]    4/5 sondeo triple…", flush=True)
                 for pt in puntos_anclaje:
                     if pt < dur_total:
                         offset_s = max(0, int(min(pt, dur_total - segundos_ventana) * sr_sondeo))
@@ -281,14 +291,17 @@ class EngineUfulu(QThread):
                     confidence_final
                 ]
                 self.resultado.emit(meta_final, adn_dict, bpm_ufulu_str)
+                print(f"[ENGINE]    5/5 EMITIDO resultado para {os.path.basename(ruta)}", flush=True)
 
             except Exception as e:
-                print(f"FALLO CANAL {indice}: {os.path.basename(ruta)} -> {e}")
+                print(f"FALLO CANAL {indice}: {os.path.basename(ruta)} -> {e}", flush=True)
+                import traceback; traceback.print_exc()
                 self.resultado.emit(
                     [os.path.basename(ruta), "0", "ERROR", "NOCHE", "UNK", ruta, 5, "-", 0],
                     {"onda":[], "rms":[], "beat":[]}, "0")
 
             self.progreso.emit(indice + 1)
+        print(f"[ENGINE] HILO TERMINADO. {len(self.archivos)} archivos procesados", flush=True)
 
 
 # ======================================================================
