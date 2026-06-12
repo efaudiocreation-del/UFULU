@@ -218,7 +218,12 @@ class EngineUfulu(QThread):
                         offset_s = max(0, int(min(pt, dur_total - segundos_ventana) * sr_sondeo))
                         n_s = int(segundos_ventana * sr_sondeo)
                         y_v = y_all[offset_s:offset_s + n_s]
-                        res_ventana, conf_ventana = self.analizar_sondeo(y_v, sr_sondeo)
+                        # Resampleamos a sr_proc (22050) para que la lógica DSP
+                        # del DJ (filtros Butterworth afinados a esa sr) funcione
+                        # de forma estable. SIN tocar analizar_sondeo.
+                        if sr_sondeo != sr_proc:
+                            y_v = librosa.resample(y_v, orig_sr=sr_sondeo, target_sr=sr_proc)
+                        res_ventana, conf_ventana = self.analizar_sondeo(y_v, sr_proc)
                         if res_ventana > 0:
                             resultados_sondas.append(res_ventana)
                             resultados_confidence.append(conf_ventana)
